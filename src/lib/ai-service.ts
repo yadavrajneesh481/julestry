@@ -1,4 +1,4 @@
-import { LearningGuide } from '@/types/learning-guide';
+import { LearningGuide, Section, ContentBlock, GlossaryTerm } from '@/types/learning-guide';
 
 const MOCK_GUIDES: Record<string, LearningGuide> = {
   photosynthesis: {
@@ -198,13 +198,111 @@ const MOCK_GUIDES: Record<string, LearningGuide> = {
   }
 };
 
+function parseMarkdownContent(markdown: string): LearningGuide {
+  const lines = markdown.split('\n');
+
+  // 1. Extract Title (first H1)
+  const titleLine = lines.find(line => line.startsWith('# ')) || "# Untitled Guide";
+  const topic = titleLine.replace('# ', '').trim().replace(/🚀|✨|🔥/g, '').trim();
+
+  // 2. Extract Sections (H2 headers)
+  // Split by "## " but keep the delimiter to know where sections start
+  const rawSections = markdown.split(/\n## /g).slice(1); // skip preamble before first ##
+
+  const sections: Section[] = rawSections.map((sectionRaw, index) => {
+    const sectionLines = sectionRaw.split('\n');
+    const title = sectionLines[0].trim().replace(/1️⃣|2️⃣|3️⃣|4️⃣|5️⃣|6️⃣|7️⃣|8️⃣|9️⃣|0️⃣|🔟|🔹|📖|⚠️|📚|🎯/g, '').trim();
+    const contentText = sectionLines.slice(1).join('\n').trim();
+
+    const contentBlocks: ContentBlock[] = [];
+
+    // Simple parser for code blocks within the section
+    // We split by ``` to separate text and code
+    const parts = contentText.split('```');
+
+    parts.forEach((part, i) => {
+      if (i % 2 === 0) {
+        // Text part
+        if (part.trim()) {
+          contentBlocks.push({
+            type: 'text',
+            content: part.trim()
+          });
+        }
+      } else {
+        // Code part (inside ```)
+        // Check if it's mermaid
+        if (part.startsWith('mermaid')) {
+          contentBlocks.push({
+            type: 'mermaid',
+            chart: part.replace('mermaid', '').trim(),
+            caption: "Diagram"
+          });
+        } else {
+          // Treat as code snippet displayed as text for now, or wrap in a styled block
+          // Ideally we'd have a 'code' block type, but 'text' with markdown code fences works if our renderer supports it.
+          // Our TextRenderer is simple, so let's just pre-format it with some spacing.
+          const lang = part.split('\n')[0].trim();
+          const code = part.replace(lang, '').trim();
+          contentBlocks.push({
+            type: 'text',
+            content: `\n\`\`\`${lang}\n${code}\n\`\`\`\n`
+          });
+        }
+      }
+    });
+
+    return {
+      id: `section-${index}`,
+      title,
+      content: contentBlocks
+    };
+  });
+
+  // 3. Extract Glossary (heuristic: lines starting with **Term**:)
+  const glossary: GlossaryTerm[] = [];
+  const definitionRegex = /\*\*([^*]+)\*\*[:\s]+(.*)/;
+
+  lines.forEach(line => {
+    const match = line.match(definitionRegex);
+    if (match && glossary.length < 6) { // Limit to 6 terms
+      glossary.push({
+        term: match[1].trim(),
+        definition: match[2].trim()
+      });
+    }
+  });
+
+  // 4. Summary (Text between title and first section)
+  // Find text before first "##"
+  const preamble = markdown.split(/\n## /)[0].replace(titleLine, '').trim();
+  const summary = preamble.length > 0
+    ? preamble.slice(0, 300) + (preamble.length > 300 ? '...' : '')
+    : `Guide for ${topic}`;
+
+  return {
+    topic,
+    summary,
+    sections,
+    glossary: glossary.length > 0 ? glossary : [
+        { term: "Concept", definition: "Refer to the sections below for details." }
+    ]
+  };
+}
+
 export async function generateLearningGuide(input: string): Promise<LearningGuide> {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 1500));
 
   const lowerInput = input.toLowerCase();
 
-  // 1. Check for specific keywords
+  // 1. Check if input looks like a structured Markdown Prompt provided by user
+  // Heuristic: Has "# " title and "## " sections
+  if (input.includes('# ') && input.includes('## ')) {
+    return parseMarkdownContent(input);
+  }
+
+  // 2. Check for specific keywords (Legacy mocks)
   if (lowerInput.includes('photo') || lowerInput.includes('plant')) {
     return MOCK_GUIDES['photosynthesis'];
   }
@@ -215,7 +313,7 @@ export async function generateLearningGuide(input: string): Promise<LearningGuid
     return MOCK_GUIDES['computer'];
   }
 
-  // 2. Generic Fallback (Dynamic Template)
+  // 3. Generic Fallback (Dynamic Template)
   // If we don't recognize the topic, we create a generic structure that reuses the user's input.
   const topicTitle = input.length > 50 ? "Your Topic" : input; // Truncate if too long for title
 

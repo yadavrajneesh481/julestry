@@ -1,0 +1,21 @@
+
+> hinglish-learning-platform@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+
+✓ Starting...
+✓ Ready in 1294ms
+○ Compiling / ...
+ GET / 200 in 20.7s (compile: 19.5s, render: 1212ms)
+ GET / 200 in 79ms (compile: 9ms, render: 70ms)
+Processing content of type: text
+ POST /api/generate 200 in 2.2s (compile: 665ms, render: 1527ms)
+ GET / 200 in 67ms (compile: 6ms, render: 60ms)
+Processing content of type: text
+ POST /api/generate 200 in 1513ms (compile: 4ms, render: 1509ms)
+ GET / 200 in 79ms (compile: 6ms, render: 73ms)
+Processing content of type: text
+ POST /api/generate 200 in 238ms (compile: 3ms, render: 235ms)
